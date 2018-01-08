@@ -52,6 +52,7 @@
 #define NAVES_DIR_IZQ 1
 #define NAVES_MARGEN 10
 #define LOG_DEKKER_Y 15
+#define LOG_TIEMPO_Y 16
 #define MOVIMIENTOS_NAVES 10
 
 struct info {
@@ -146,13 +147,32 @@ int mIdJugador;
 int mIdProceso;
 
 int main(void) {
-	printf("!!!Hello World!!!"); /* prints !!!Hello World!!! */
 	cargarMemoriaCompartida();
 	verificarDisponibilidadJugadores();
-	configurarSemaforo();
-	//configurarPantallaInicio();
 
-	//seleccionarClan();
+	//pantalla entrada
+	menu_win = initscr();
+	keypad(menu_win, TRUE);
+	cbreak();
+	start_color();
+	clear();
+	init_pair(10, COLOR_WHITE, COLOR_CYAN);
+	init_pair(11, COLOR_WHITE, COLOR_GREEN);
+	attron(COLOR_PAIR(10));
+	mvprintw(4, 28, "                    ");
+	mvprintw(5, 28, "   SPACE INVADER    ");
+	mvprintw(6, 28, "                    ");
+	attroff(COLOR_PAIR(10));
+
+	attron(COLOR_PAIR(11));
+	mvprintw(10, 20, "  Mario Alexander Gutierrez Hernandez  ");
+	mvprintw(11, 20, "              201020781                ");
+	attroff(COLOR_PAIR(11));
+
+	refresh();
+	wgetch(menu_win);
+
+	configurarSemaforo();
 	return EXIT_SUCCESS;
 }
 
@@ -208,7 +228,7 @@ void verificarDisponibilidadJugadores() {
 //***********************************************************************
 
 void doSignal(int sId, int sNum) {
-	struct sembuf lsembuf; //Signal
+	struct sembuf lsembuf;
 	lsembuf.sem_num = sNum;
 	lsembuf.sem_op = 1;
 	lsembuf.sem_flg = 0;
@@ -221,8 +241,8 @@ void doSignal(int sId, int sNum) {
 
 void doWait(int sId, int sNum) {
 	struct sembuf sops;
-	sops.sem_num = sNum; /* Sobre el primero, ... */
-	sops.sem_op = -1; /* ... un wait (resto 1) */
+	sops.sem_num = sNum;
+	sops.sem_op = -1;
 	sops.sem_flg = 0;
 
 	if (semop(sId, &sops, 1) == -1) {
@@ -241,7 +261,7 @@ void initSem(int sId, int numSem, int valor) { //iniciar un semaforo
 
 void liberarSemaforo() {
 	int sId = semget(4321, 1, IPC_CREAT | 0700);
-	//Manera de usar semget http://pubs.opengroup.org/onlinepubs/7908799/xsh/semget.html
+
 	//Creamos un semaforo y damos permisos para compartirlo
 	if (sId < 0) {
 		perror(NULL);
@@ -347,14 +367,14 @@ void configurarSemaforoJugador2() {
 //***********************************************************************
 void configurarPantallaInicio() {
 
-	menu_win = initscr();
-	keypad(menu_win, TRUE);
-	//raw();
+	//menu_win = initscr();
+	//keypad(menu_win, TRUE);
 	cbreak();
 	start_color();
 	init_pair(PAIR_SELECCION_SI, COLOR_WHITE, COLOR_GREEN);
 	init_pair(PAIR_SELECCION_NO, COLOR_WHITE, COLOR_BLACK);
 
+	clear();
 	cambioPantallaInicioClan(CLAN_DEFENSOR);
 
 	refresh();
@@ -547,6 +567,7 @@ void dekkerProceso1() {
 			while (flagActivo) {
 				usleep(100 * 1000);
 				auxiliar++;
+				mInfo->tiempo++;
 				if (auxiliar == 10) {
 					moverNaves();
 					auxiliar = 0;
@@ -563,7 +584,7 @@ void dekkerProceso1() {
 			usleep(100 * 1000);
 		}
 
-		kill( pidForkProceso1, SIGKILL );
+		kill(pidForkProceso1, SIGKILL);
 
 		mInfo->turno = 2;
 		mInfo->p1_puede_entrar = false;
@@ -602,6 +623,7 @@ void dekkerProceso2() {
 			while (flagActivo) {
 				usleep(100 * 1000);
 				auxiliar++;
+				mInfo->tiempo++;
 				if (auxiliar == 10) {
 					moverNaves();
 					auxiliar = 0;
@@ -618,7 +640,7 @@ void dekkerProceso2() {
 			usleep(100 * 1000);
 		}
 
-		kill( pidForkProceso2, SIGKILL );
+		kill(pidForkProceso2, SIGKILL);
 
 		mInfo->turno = 1;
 		mInfo->p2_puede_entrar = false;
@@ -645,20 +667,24 @@ void escucharTeclaProcesoDekker() {
 	while (flag) {
 		int tecla = wgetch(menu_win);
 
-		if (tecla == KEY_LEFT) {
-			if (mTipoClan == CLAN_DEFENSOR) {
-				mInfo->defensonr_x = mInfo->defensonr_x - 1;
-			} else if (mTipoClan == CLAN_INVASOR) {
-				mInfo->comandante_x = mInfo->comandante_x - 1;
+		if (mIdProceso == mInfo->regionCriticDekker) {
+			if (tecla == KEY_LEFT) {
+
+				if (mTipoClan == CLAN_DEFENSOR) {
+					mInfo->defensonr_x = mInfo->defensonr_x - 1;
+				} else if (mTipoClan == CLAN_INVASOR) {
+					mInfo->comandante_x = mInfo->comandante_x - 1;
+				}
+				flag = false;
+
+			} else if (tecla == KEY_RIGHT) {
+				if (mTipoClan == CLAN_DEFENSOR) {
+					mInfo->defensonr_x = mInfo->defensonr_x + 1;
+				} else if (mTipoClan == CLAN_INVASOR) {
+					mInfo->comandante_x = mInfo->comandante_x + 1;
+				}
+				flag = false;
 			}
-			flag = false;
-		} else if (tecla == KEY_RIGHT) {
-			if (mTipoClan == CLAN_DEFENSOR) {
-				mInfo->defensonr_x = mInfo->defensonr_x + 1;
-			} else if (mTipoClan == CLAN_INVASOR) {
-				mInfo->comandante_x = mInfo->comandante_x + 1;
-			}
-			flag = false;
 		}
 	}
 
@@ -678,6 +704,12 @@ void imprimirPantallaDekkerSalio(int proceso) {
 void imprimirLogDekker() {
 	mvprintw(LOG_DEKKER_Y, 0, "ID_P: %d  | RC: %d", mIdProceso,
 			mInfo->regionCriticDekker);
+}
+
+void imprimirTiempo() {
+	int segundos = mInfo->tiempo / 10;
+	mvprintw(LOG_TIEMPO_Y, 0, "TIEMO: %d segundos", segundos);
+
 }
 
 void refrescarPantallaAutomaticamente() {
@@ -702,6 +734,7 @@ void imprimirPantallaJuego() {
 	imprimirDefensor();
 	imprimirNaves();
 	imprimirLogDekker();
+	imprimirTiempo();
 	refresh();
 }
 
